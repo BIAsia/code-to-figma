@@ -75,6 +75,13 @@ async function main() {
     dom
   };
   
+  // Save to local file
+  const outputPath = './output/latest.json';
+  const fs = await import('fs/promises');
+  await fs.mkdir('./output', { recursive: true });
+  await fs.writeFile(outputPath, JSON.stringify(data, null, 2));
+  console.log(`💾 Saved to: ${outputPath}`);
+  
   // Output JSON to console
   const jsonOutput = JSON.stringify(data, null, 2);
   console.log('\n📋 JSON Output (copy this):');
@@ -87,10 +94,11 @@ async function main() {
   const result = await uploadToNotion(url, data);
   
   console.log('\n✅ Complete!');
+  console.log(`💾 Local file: ${outputPath}`);
   console.log(`📋 Notion Page: ${result.url}`);
   console.log(`🔑 Page ID: ${result.pageId}`);
   console.log('\n💡 Next steps:');
-  console.log('1. Copy the JSON output above');
+  console.log('1. Copy JSON from console output OR open ./output/latest.json');
   console.log('2. Open Figma plugin');
   console.log('3. Paste JSON and click "Create Figma Nodes"');
 }
