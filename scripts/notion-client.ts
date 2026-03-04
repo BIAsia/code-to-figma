@@ -1,5 +1,6 @@
 import { Client } from '@notionhq/client';
 import dotenv from 'dotenv';
+import fs from 'fs/promises';
 
 dotenv.config();
 
@@ -12,8 +13,34 @@ export async function uploadToNotion(url: string, data: any): Promise<{ pageId: 
   
   console.log(`📊 Data size: ${jsonString.length} characters`);
   
-  // Create page with file attachment (using paragraph blocks for now, as Notion API doesn't support direct file upload)
-  // We'll use a single paragraph with the JSON
+  // Save JSON to a temporary file
+  const tempFilePath = `./output/${timestamp}.json`;
+  await fs.writeFile(tempFilePath, jsonString);
+  
+  // Upload JSON as file attachment to Notion
+  // Note: Notion API doesn't support direct file upload, so we'll use code blocks
+  // Split into chunks if needed
+  const chunkSize = 1900;
+  const chunks: string[] = [];
+  
+  for (let i = 0; i < jsonString.length; i += chunkSize) {
+    chunks.push(jsonString.slice(i, i + chunkSize));
+  }
+  
+  console.log(`📦 Split into ${chunks.length} chunks`);
+  
+  const children = chunks.map((chunk, index) => ({
+    object: 'block' as const,
+    type: 'code' as const,
+    code: {
+      language: 'json' as const,
+      rich_text: [{
+        type: 'text' as const,
+        text: { content: chunk }
+      }]
+    }
+  }));
+  
   const response = await notion.pages.create({
     parent: { database_id: databaseId },
     properties: {
@@ -32,20 +59,7 @@ export async function uploadToNotion(url: string, data: any): Promise<{ pageId: 
         date: { start: new Date().toISOString() }
       }
     },
-    children: [
-      {
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: [{
-            type: 'text',
-            text: { 
-              content: `JSON data saved to local file: ./output/latest.json\nFile size: ${jsonString.length} characters`
-            }
-          }]
-        }
-      }
-    ]
+    children
   });
   
   return {
