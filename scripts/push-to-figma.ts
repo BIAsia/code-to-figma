@@ -22,35 +22,39 @@ async function captureDOM(url: string): Promise<DOMNode> {
   
   console.log('📸 Capturing DOM structure...');
   
-  const domData = await page.evaluate(() => {
-    function captureNode(element: Element): any {
-      const styles = window.getComputedStyle(element);
+  const domData = await page.evaluate(`
+    (function() {
+      function captureNode(element) {
+        const styles = window.getComputedStyle(element);
+        
+        return {
+          tag: element.tagName.toLowerCase(),
+          text: element.textContent ? element.textContent.trim() : undefined,
+          styles: {
+            backgroundColor: styles.backgroundColor,
+            color: styles.color,
+            fontSize: styles.fontSize,
+            fontWeight: styles.fontWeight,
+            border: styles.border,
+            borderRadius: styles.borderRadius,
+            padding: styles.padding,
+            margin: styles.margin,
+            width: styles.width,
+            height: styles.height
+          },
+          attributes: {
+            class: element.className,
+            id: element.id
+          },
+          children: Array.from(element.children).map(function(child) {
+            return captureNode(child);
+          })
+        };
+      }
       
-      return {
-        tag: element.tagName.toLowerCase(),
-        text: element.textContent?.trim() || undefined,
-        styles: {
-          backgroundColor: styles.backgroundColor,
-          color: styles.color,
-          fontSize: styles.fontSize,
-          fontWeight: styles.fontWeight,
-          border: styles.border,
-          borderRadius: styles.borderRadius,
-          padding: styles.padding,
-          margin: styles.margin,
-          width: styles.width,
-          height: styles.height
-        },
-        attributes: {
-          class: element.className,
-          id: element.id
-        },
-        children: Array.from(element.children).map(child => captureNode(child))
-      };
-    }
-    
-    return captureNode(document.body);
-  });
+      return captureNode(document.body);
+    })()
+  `);
   
   await browser.close();
   

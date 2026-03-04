@@ -16,27 +16,19 @@ interface NotionData {
 }
 
 // Show UI
-figma.showUI(__html__, { width: 360, height: 320 });
+figma.showUI(__html__, { width: 400, height: 380 });
 
 // Handle messages from UI
 figma.ui.onmessage = async (msg) => {
   console.log('Received message:', msg.type);
   
-  if (msg.type === 'load-settings') {
-    const notionToken = await figma.clientStorage.getAsync('notionToken');
+  if (msg.type === 'load-data') {
     const jsonData = await figma.clientStorage.getAsync('lastJsonData');
     
     figma.ui.postMessage({
-      type: 'settings-loaded',
-      notionToken: notionToken || '',
+      type: 'data-loaded',
       jsonData: jsonData || ''
     });
-  }
-  
-  else if (msg.type === 'save-settings') {
-    await figma.clientStorage.setAsync('notionToken', msg.notionToken);
-    figma.ui.postMessage({ type: 'settings-saved' });
-    figma.notify('✅ Settings saved');
   }
   
   else if (msg.type === 'import') {

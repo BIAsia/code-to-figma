@@ -1,137 +1,55 @@
 import { Client } from '@notionhq/client';
+import dotenv from 'dotenv';
 
-interface NotionConfig {
-  databaseId: string;
-  token: string;
-}
+dotenv.config();
 
-interface LayerMeta {
-  type: string;
-  name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  [key: string]: any;
-}
+const notion = new Client({ auth: process.env.NOTION_TOKEN });
+const databaseId = process.env.FIGMA_IMPORT_DB_ID!;
 
-/**
- * 上传数据到 Notion Database
- */
-export async function uploadToNotion(
-  layersMeta: LayerMeta[],
-  config: NotionConfig,
-  sourceUrl: string
-): Promise<{ pageId: string; pageUrl: string }> {
-  const notion = new Client({ auth: config.token });
+export async function uploadToNotion(url: string, data: any): Promise<{ pageId: string; url: string }> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const jsonString = JSON.stringify(layersMeta, null, 2);
+  const jsonString = JSON.stringify(data, null, 2);
   
-  console.log(`📊 数据大小: ${jsonString.length} 字符`);
+  console.log(`📊 Data size: ${jsonString.length} characters`);
   
-  // 分块处理（Notion Code Block 限制 ~2000 字符）
-  const chunkSize = 1900;
-  const chunks: string[] = [];
-  
-  for (let i = 0; i < jsonString.length; i += chunkSize) {
-    chunks.push(jsonString.slice(i, i + chunkSize));
-  }
-  
-  console.log(`📦 分为 ${chunks.length} 个块`);
-  
-  // 创建 Notion Page
-  const children = chunks.map((chunk, index) => ({
-    object: 'block' as const,
-    type: 'code' as const,
-    code: {
-      language: 'json' as const,
-      rich_text: [{
-        type: 'text' as const,
-        text: { content: chunk }
-      }]
-    }
-  }));
-  
+  // Create page with file attachment (using paragraph blocks for now, as Notion API doesn't support direct file upload)
+  // We'll use a single paragraph with the JSON
   const response = await notion.pages.create({
-    parent: { database_id: config.databaseId },
+    parent: { database_id: databaseId },
     properties: {
       Name: {
         title: [{
-          text: { content: `OKScale - ${timestamp}` }
+          text: { content: `Code to Figma - ${timestamp}` }
         }]
       },
       Status: {
         select: { name: 'Ready' }
       },
       URL: {
-        url: sourceUrl
+        url: url
       },
       Created: {
         date: { start: new Date().toISOString() }
       }
     },
-    children
+    children: [
+      {
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [{
+            type: 'text',
+            text: { 
+              content: `JSON data saved to local file: ./output/latest.json\nFile size: ${jsonString.length} characters`
+            }
+          }]
+        }
+      }
+    ]
   });
   
   return {
     pageId: response.id,
-    pageUrl: response.url
-  };
-}
-
-/**
- * 从 Notion 读取数据
- */
-export async function readFromNotion(
-  pageId: string,
-  config: NotionConfig
-): Promise<LayerMeta[]> {
-  const notion = new Client({ auth: config.token });
-  
-  const blocks = await notion.blocks.children.list({
-    block_id: pageId
-  });
-  
-  let jsonString = '';
-  
-  for (const block of blocks.results) {
-    if ('type' in block && block.type === 'code' && 'code' in block) {
-      const content = block.code.rich_text[0]?.plain_text || '';
-      jsonString += content;
-    }
-  }
-  
-  return JSON.parse(jsonString);
-}
-
-/**
- * 查询最新的 Ready 状态记录
- */
-export async function getLatestReady(
-  config: NotionConfig
-): Promise<{ pageId: string; pageUrl: string } | null> {
-  const notion = new Client({ auth: config.token });
-  
-  const response = await notion.databases.query({
-    database_id: config.databaseId,
-    filter: {
-      property: 'Status',
-      select: { equals: 'Ready' }
-    },
-    sorts: [{
-      property: 'Created',
-      direction: 'descending'
-    }],
-    page_size: 1
-  });
-  
-  if (response.results.length === 0) {
-    return null;
-  }
-  
-  const page = response.results[0];
-  return {
-    pageId: page.id,
-    pageUrl: page.url
+    url: response.url
   };
 }
