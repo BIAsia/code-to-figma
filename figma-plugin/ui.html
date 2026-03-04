@@ -13,6 +13,31 @@
       font-size: 14px;
       font-weight: 600;
     }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #ddd;
+    }
+    .tab {
+      padding: 8px 12px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      font-size: 12px;
+      color: #666;
+    }
+    .tab.active {
+      color: #18A0FB;
+      border-bottom-color: #18A0FB;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
     .input-group {
       margin-bottom: 12px;
     }
@@ -22,13 +47,18 @@
       color: #666;
       margin-bottom: 4px;
     }
-    input {
+    input, textarea {
       width: 100%;
       padding: 8px;
       border: 1px solid #ddd;
       border-radius: 4px;
       font-size: 12px;
       box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 60px;
     }
     button {
       width: 100%;
@@ -47,6 +77,13 @@
     button:disabled {
       background: #ccc;
       cursor: not-allowed;
+    }
+    button.secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+    button.secondary:hover {
+      background: #e0e0e0;
     }
     #status {
       margin-top: 12px;
@@ -70,40 +107,96 @@
       color: #1565C0;
       display: block;
     }
+    .help-text {
+      font-size: 10px;
+      color: #999;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
   <h2>OKScale to Figma</h2>
   
-  <div class="input-group">
-    <label>Notion Page ID</label>
-    <input type="text" id="pageId" placeholder="31966d37-e695-81f2-962d-df4d66986218">
+  <div class="tabs">
+    <button class="tab active" data-tab="import">Import</button>
+    <button class="tab" data-tab="settings">Settings</button>
   </div>
 
-  <button id="import">Import from Notion</button>
+  <!-- Import Tab -->
+  <div class="tab-content active" id="import-tab">
+    <div class="input-group">
+      <label>Notion Page ID</label>
+      <input type="text" id="pageId" placeholder="31966d37-e695-81f2-962d-df4d66986218">
+      <div class="help-text">从 Notion Page URL 中提取的 ID</div>
+    </div>
+
+    <button id="import">Import from Notion</button>
+  </div>
+
+  <!-- Settings Tab -->
+  <div class="tab-content" id="settings-tab">
+    <div class="input-group">
+      <label>Notion Integration Token</label>
+      <textarea id="notionToken" placeholder="secret_..."></textarea>
+      <div class="help-text">从 notion.so/my-integrations 获取</div>
+    </div>
+
+    <button id="saveSettings" class="secondary">Save Settings</button>
+  </div>
   
   <div id="status"></div>
 
   <script>
     const pageIdInput = document.getElementById('pageId');
+    const notionTokenInput = document.getElementById('notionToken');
     const importBtn = document.getElementById('import');
+    const saveSettingsBtn = document.getElementById('saveSettings');
     const status = document.getElementById('status');
 
-    // Load saved page ID
-    const savedPageId = localStorage.getItem('notionPageId');
-    if (savedPageId) {
-      pageIdInput.value = savedPageId;
-    }
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const tabName = tab.dataset.tab;
+        
+        // Update tabs
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        // Update content
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(`${tabName}-tab`).classList.add('active');
+        
+        // Clear status when switching tabs
+        status.style.display = 'none';
+      });
+    });
 
+    // Load saved values
+    parent.postMessage({ pluginMessage: { type: 'load-settings' } }, '*');
+
+    // Save settings
+    saveSettingsBtn.onclick = () => {
+      const token = notionTokenInput.value.trim();
+      if (!token) {
+        showStatus('error', 'Please enter a Notion token');
+        return;
+      }
+
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'save-settings',
+          notionToken: token
+        } 
+      }, '*');
+    };
+
+    // Import
     importBtn.onclick = () => {
       const pageId = pageIdInput.value.trim();
       if (!pageId) {
         showStatus('error', 'Please enter a Notion Page ID');
         return;
       }
-
-      // Save page ID
-      localStorage.setItem('notionPageId', pageId);
 
       showStatus('loading', 'Fetching data from Notion...');
       importBtn.disabled = true;
@@ -116,9 +209,16 @@
       }, '*');
     };
 
+    // Handle messages from plugin
     window.onmessage = (event) => {
       const msg = event.data.pluginMessage;
-      if (msg.type === 'import-complete') {
+      
+      if (msg.type === 'settings-loaded') {
+        if (msg.pageId) pageIdInput.value = msg.pageId;
+        if (msg.notionToken) notionTokenInput.value = msg.notionToken;
+      } else if (msg.type === 'settings-saved') {
+        showStatus('success', '✅ Settings saved');
+      } else if (msg.type === 'import-complete') {
         showStatus('success', `✅ Created ${msg.nodeCount} nodes`);
         importBtn.disabled = false;
       } else if (msg.type === 'import-error') {

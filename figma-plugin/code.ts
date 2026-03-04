@@ -16,14 +16,41 @@ interface NotionData {
 }
 
 // Show UI
-figma.showUI(__html__, { width: 320, height: 240 });
+figma.showUI(__html__, { width: 360, height: 320 });
 
 // Handle messages from UI
 figma.ui.onmessage = async (msg) => {
-  if (msg.type === 'import') {
+  console.log('Received message:', msg.type);
+  
+  if (msg.type === 'load-settings') {
+    const notionToken = await figma.clientStorage.getAsync('notionToken');
+    const pageId = await figma.clientStorage.getAsync('lastPageId');
+    
+    figma.ui.postMessage({
+      type: 'settings-loaded',
+      notionToken: notionToken || '',
+      pageId: pageId || ''
+    });
+  }
+  
+  else if (msg.type === 'save-settings') {
+    await figma.clientStorage.setAsync('notionToken', msg.notionToken);
+    figma.ui.postMessage({ type: 'settings-saved' });
+    figma.notify('✅ Settings saved');
+  }
+  
+  else if (msg.type === 'import') {
     try {
+      console.log('Starting import for page:', msg.pageId);
+      
+      // Save last used page ID
+      await figma.clientStorage.setAsync('lastPageId', msg.pageId);
+      
       const data = await fetchFromNotion(msg.pageId);
+      console.log('Data fetched:', data);
+      
       const nodeCount = await createFigmaNodes(data);
+      console.log('Nodes created:', nodeCount);
       
       figma.ui.postMessage({ 
         type: 'import-complete',
@@ -33,10 +60,13 @@ figma.ui.onmessage = async (msg) => {
       figma.notify(`✅ Imported ${nodeCount} nodes from Notion`);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Import error:', errorMsg, error);
+      
       figma.ui.postMessage({ 
         type: 'import-error',
         error: errorMsg
       });
+      
       figma.notify(`❌ Import failed: ${errorMsg}`, { error: true });
     }
   }
