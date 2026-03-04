@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      padding: 16px;
+      margin: 0;
+    }
+    h2 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .input-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #18A0FB;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0D8FE8;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      display: none;
+    }
+    #status.success {
+      background: #E8F5E9;
+      color: #2E7D32;
+      display: block;
+    }
+    #status.error {
+      background: #FFEBEE;
+      color: #C62828;
+      display: block;
+    }
+    #status.loading {
+      background: #E3F2FD;
+      color: #1565C0;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h2>OKScale to Figma</h2>
+  
+  <div class="input-group">
+    <label>Notion Page ID</label>
+    <input type="text" id="pageId" placeholder="31966d37-e695-81f2-962d-df4d66986218">
+  </div>
+
+  <button id="import">Import from Notion</button>
+  
+  <div id="status"></div>
+
+  <script>
+    const pageIdInput = document.getElementById('pageId');
+    const importBtn = document.getElementById('import');
+    const status = document.getElementById('status');
+
+    // Load saved page ID
+    const savedPageId = localStorage.getItem('notionPageId');
+    if (savedPageId) {
+      pageIdInput.value = savedPageId;
+    }
+
+    importBtn.onclick = () => {
+      const pageId = pageIdInput.value.trim();
+      if (!pageId) {
+        showStatus('error', 'Please enter a Notion Page ID');
+        return;
+      }
+
+      // Save page ID
+      localStorage.setItem('notionPageId', pageId);
+
+      showStatus('loading', 'Fetching data from Notion...');
+      importBtn.disabled = true;
+
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'import',
+          pageId: pageId
+        } 
+      }, '*');
+    };
+
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+      if (msg.type === 'import-complete') {
+        showStatus('success', `✅ Created ${msg.nodeCount} nodes`);
+        importBtn.disabled = false;
+      } else if (msg.type === 'import-error') {
+        showStatus('error', `❌ ${msg.error}`);
+        importBtn.disabled = false;
+      }
+    };
+
+    function showStatus(type, message) {
+      status.className = type;
+      status.textContent = message;
+    }
+  </script>
+</body>
+</html>

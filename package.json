@@ -1,0 +1,31 @@
+{
+  "name": "code-to-figma",
+  "version": "1.0.0",
+  "description": "实现从 OKScale web 应用自动捕获 UI 并推送到 Figma 的完整管道。",
+  "type": "module",
+  "scripts": {
+    "push-to-figma": "tsx scripts/push-to-figma.ts",
+    "build:plugin": "tsc --project figma-plugin/tsconfig.json",
+    "watch:plugin": "tsc --project figma-plugin/tsconfig.json --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "figma",
+    "puppeteer",
+    "notion",
+    "okscale"
+  ],
+  "author": "Mona",
+  "license": "MIT",
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "dotenv": "^17.3.1",
+    "puppeteer": "^22.0.0"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.123.0",
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
