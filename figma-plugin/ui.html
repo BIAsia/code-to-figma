@@ -125,12 +125,12 @@
   <!-- Import Tab -->
   <div class="tab-content active" id="import-tab">
     <div class="input-group">
-      <label>Notion Page ID</label>
-      <input type="text" id="pageId" placeholder="31966d37-e695-81f2-962d-df4d66986218">
-      <div class="help-text">从 Notion Page URL 中提取的 ID</div>
+      <label>Paste JSON Data</label>
+      <textarea id="jsonData" placeholder='{"url": "...", "timestamp": "...", "dom": {...}}'></textarea>
+      <div class="help-text">从脚本输出复制 JSON 数据</div>
     </div>
 
-    <button id="import">Import from Notion</button>
+    <button id="import">Create Figma Nodes</button>
   </div>
 
   <!-- Settings Tab -->
@@ -147,7 +147,7 @@
   <div id="status"></div>
 
   <script>
-    const pageIdInput = document.getElementById('pageId');
+    const jsonDataInput = document.getElementById('jsonData');
     const notionTokenInput = document.getElementById('notionToken');
     const importBtn = document.getElementById('import');
     const saveSettingsBtn = document.getElementById('saveSettings');
@@ -192,19 +192,27 @@
 
     // Import
     importBtn.onclick = () => {
-      const pageId = pageIdInput.value.trim();
-      if (!pageId) {
-        showStatus('error', 'Please enter a Notion Page ID');
+      const jsonText = jsonDataInput.value.trim();
+      if (!jsonText) {
+        showStatus('error', 'Please paste JSON data');
         return;
       }
 
-      showStatus('loading', 'Fetching data from Notion...');
+      // Validate JSON
+      try {
+        JSON.parse(jsonText);
+      } catch (e) {
+        showStatus('error', 'Invalid JSON format');
+        return;
+      }
+
+      showStatus('loading', 'Creating Figma nodes...');
       importBtn.disabled = true;
 
       parent.postMessage({ 
         pluginMessage: { 
           type: 'import',
-          pageId: pageId
+          jsonData: jsonText
         } 
       }, '*');
     };
@@ -214,7 +222,7 @@
       const msg = event.data.pluginMessage;
       
       if (msg.type === 'settings-loaded') {
-        if (msg.pageId) pageIdInput.value = msg.pageId;
+        if (msg.jsonData) jsonDataInput.value = msg.jsonData;
         if (msg.notionToken) notionTokenInput.value = msg.notionToken;
       } else if (msg.type === 'settings-saved') {
         showStatus('success', '✅ Settings saved');

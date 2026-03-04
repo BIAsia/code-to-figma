@@ -24,12 +24,12 @@ figma.ui.onmessage = async (msg) => {
   
   if (msg.type === 'load-settings') {
     const notionToken = await figma.clientStorage.getAsync('notionToken');
-    const pageId = await figma.clientStorage.getAsync('lastPageId');
+    const jsonData = await figma.clientStorage.getAsync('lastJsonData');
     
     figma.ui.postMessage({
       type: 'settings-loaded',
       notionToken: notionToken || '',
-      pageId: pageId || ''
+      jsonData: jsonData || ''
     });
   }
   
@@ -41,13 +41,14 @@ figma.ui.onmessage = async (msg) => {
   
   else if (msg.type === 'import') {
     try {
-      console.log('Starting import for page:', msg.pageId);
+      console.log('Starting import with JSON data');
       
-      // Save last used page ID
-      await figma.clientStorage.setAsync('lastPageId', msg.pageId);
+      // Parse JSON data
+      const data: NotionData = JSON.parse(msg.jsonData);
+      console.log('Data parsed:', data);
       
-      const data = await fetchFromNotion(msg.pageId);
-      console.log('Data fetched:', data);
+      // Save last used JSON data
+      await figma.clientStorage.setAsync('lastJsonData', msg.jsonData);
       
       const nodeCount = await createFigmaNodes(data);
       console.log('Nodes created:', nodeCount);
@@ -57,7 +58,7 @@ figma.ui.onmessage = async (msg) => {
         nodeCount 
       });
       
-      figma.notify(`✅ Imported ${nodeCount} nodes from Notion`);
+      figma.notify(`✅ Created ${nodeCount} nodes`);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       console.error('Import error:', errorMsg, error);
@@ -72,42 +73,7 @@ figma.ui.onmessage = async (msg) => {
   }
 };
 
-async function fetchFromNotion(pageId: string): Promise<NotionData> {
-  // Get Notion token from plugin settings
-  const notionToken = await figma.clientStorage.getAsync('notionToken');
-  
-  if (!notionToken) {
-    throw new Error('Notion token not configured. Please set it in plugin settings.');
-  }
-
-  // Fetch page content from Notion
-  const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
-    headers: {
-      'Authorization': `Bearer ${notionToken}`,
-      'Notion-Version': '2022-06-28'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Notion API error: ${response.status} ${response.statusText}`);
-  }
-
-  const result: any = await response.json();
-  
-  // Extract JSON data from code blocks
-  let jsonData = '';
-  for (const block of result.results) {
-    if (block.type === 'code' && block.code?.rich_text) {
-      jsonData += block.code.rich_text.map((t: any) => t.plain_text).join('');
-    }
-  }
-
-  if (!jsonData) {
-    throw new Error('No data found in Notion page');
-  }
-
-  return JSON.parse(jsonData);
-}
+// Remove fetchFromNotion function - no longer needed
 
 async function createFigmaNodes(data: NotionData): Promise<number> {
   const frame = figma.createFrame();
